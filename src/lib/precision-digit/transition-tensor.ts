@@ -2,6 +2,7 @@
 // 10x10 first-order & 10x10x10 second-order digit transition tensors with Dirichlet(0.5) smoothing and Chi-Square FDR.
 
 import { benjaminiHochberg } from "../precision-parity/significance";
+import { erfc } from "./math-utils";
 
 export interface DigitDistributionReport {
   probs: number[]; // P(next = d) for d = 0..9
@@ -23,39 +24,12 @@ function chiSquarePValue(stat: number, df: number = 9): number {
   // Simple polynomial approximation for standard chi-sq CDF
   const z = Math.sqrt(2 * stat) - Math.sqrt(2 * df - 1);
   // Normal approx to tail
-  const p = 0.5 * Math.erfc(z / Math.SQRT2);
+  const p = 0.5 * erfc(z / Math.SQRT2);
   return Math.max(1e-6, Math.min(1.0, p));
 }
 
-// Math.erfc implementation
-if (!Math.erfc) {
-  Math.erfc = function (x: number) {
-    const t = 1.0 / (1.0 + 0.5 * Math.abs(x));
-    const tau =
-      t *
-      Math.exp(
-        -x * x -
-          1.26551223 +
-          t *
-            (1.00002368 +
-              t *
-                (0.37409196 +
-                  t *
-                    (0.09678418 +
-                      t *
-                        (-0.18628806 +
-                          t *
-                            (0.27886807 +
-                              t *
-                                (-1.13520398 +
-                                  t * (1.48851587 + t * (-0.82215223 + t * 0.17087277)))))))),
-      );
-    return x >= 0 ? tau : 2.0 - tau;
-  };
-}
-
-export function computeTransitionTensor(digits: number[]): DigitDistributionReport {
-  const clean = digits
+export function computeTransitionTensor(digits: number[] = []): DigitDistributionReport {
+  const clean = (digits ?? [])
     .map((d) => (typeof d === "number" && Number.isFinite(d) ? Math.abs(Math.floor(d)) % 10 : 0))
     .slice(-500);
 

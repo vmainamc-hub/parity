@@ -36,6 +36,8 @@ import {
 } from "./forecast";
 import { runDeepReasoning, recordFingerprintOutcome, type DeepReasoning } from "./deep-reasoning";
 import { buildPrecisionParitySignal } from "./engines/signal-builder";
+import { runUnifiedParityPipeline } from "./unified-pipeline";
+import type { FinalSignal } from "./final-signal";
 
 // Precision Engines (Decorrelation, Significance, Particle Filter, HMM, Drift, Calibration, Conformal, EV Gate, Walk-Forward)
 import { decorrelate, resetDecorrelationMemory, type DecorrelationReport } from "./decorrelation";
@@ -149,66 +151,6 @@ function getAdapt(market: string): AdaptiveState {
 
 const MEMORY = new Map<string, SessionMemory>();
 
-// ──────────────────────────────────────────────────────────────────────────
-// Case-study priors — real observed DBot outcomes we teach the analyst up-front.
-// These bias per-market engine weights and rolling win/loss counters so the
-// panel starts with lived experience rather than a blank slate.
-//   • 1HZ25V (Volatility 25 (1s)) — BUY ODD signal (ODD bias + Markov 58%,
-//     Green d1 ODD, Red d0 EVEN, hot digit 1 ODD, entropy HIGH) delivered
-//     5 consecutive wins. Reinforce those engines on that market.
-//   • R_100 (Volatility 100 Index) — BUY EVEN signal (Green d6 EVEN, Red d2
-//     EVEN, hot 6 EVEN, rolling posterior 84%, filtered 61% EVEN, entropy
-//     VERY_HIGH) delivered 6 consecutive losses. Weaken those engines on
-//     that market and remember that VERY_HIGH entropy has historically
-//     invalidated bar-driven EVEN conviction here.
-// ──────────────────────────────────────────────────────────────────────────
-const CASE_STUDY_PRIORS: Record<
-  string,
-  {
-    wins: number;
-    losses: number;
-    reinforce: Record<string, number>;
-  }
-> = {
-  "1HZ25V": {
-    wins: 5,
-    losses: 0,
-    reinforce: {
-      Statistics: +0.35,
-      Markov: +0.3,
-      "Higher-Order Markov": +0.15,
-      "Green Bar": +0.25,
-      "Red Bar": +0.2,
-      "Digit Psychology": +0.25,
-      Bayesian: +0.15,
-    },
-  },
-  R_100: {
-    wins: 0,
-    losses: 6,
-    reinforce: {
-      "Green Bar": -0.4,
-      "Red Bar": -0.35,
-      "Digit Psychology": -0.3,
-      Bayesian: -0.35,
-      "Kalman Trend": -0.3,
-      Statistics: -0.2,
-      Entropy: +0.45, // trust the entropy veto more here
-    },
-  },
-};
-
-function seedFromCaseStudy(mem: SessionMemory, market: string) {
-  const prior = CASE_STUDY_PRIORS[market];
-  if (!prior) return;
-  mem.realized.wins = prior.wins;
-  mem.realized.losses = prior.losses;
-  for (const [engine, delta] of Object.entries(prior.reinforce)) {
-    const cur = mem.engineWeights[engine] ?? 1;
-    mem.engineWeights[engine] = Math.max(WEIGHT_FLOOR, Math.min(WEIGHT_CEIL, cur + delta));
-  }
-}
-
 function getMemory(market: string): SessionMemory {
   const existing = MEMORY.get(market);
   if (existing) return existing;
@@ -225,7 +167,6 @@ function getMemory(market: string): SessionMemory {
     lastPrediction: null,
     realized: { wins: 0, losses: 0 },
   };
-  seedFromCaseStudy(m, market);
   MEMORY.set(market, m);
   return m;
 }
@@ -2140,14 +2081,24 @@ export function analyseMarketParity(
   adapt.lastRedParity = red.parity;
   adapt.lastNgram = currentNgram || null;
 
-  // Build institutional ParitySignal harmonized with chosenContract
+  // Build unified institutional FinalSignal and ParitySignal
+  const unifiedResult = runUnifiedParityPipeline({
+    symbol: market,
+    displayName: name,
+    ticks,
+    explicitDigits: digits,
+    payoutRate: 0.95,
+    minConfidence: settings.minConfidence,
+  });
+  const finalSignal = unifiedResult.finalSignal;
+
   let paritySignal: import("./types").ParitySignal | undefined;
   try {
     const targetContract = recommendation !== "NO_TRADE" ? recommendation : chosenContract;
     const diagnostic = buildPrecisionParitySignal(ticks, market, 0.95, 0, targetContract, digits);
     paritySignal = diagnostic.signal;
   } catch {
-    // fallback if insufficient data
+    // If legacy signal builder fails, supply clean contract fallback rather than silent null
   }
 
   return {
@@ -2200,5 +2151,6 @@ export function analyseMarketParity(
       validation: typeof validation !== "undefined" ? validation : undefined,
     },
     signal: paritySignal,
+    finalSignal,
   };
 }

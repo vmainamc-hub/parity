@@ -14,6 +14,10 @@ import type {
   EmittedParityOpportunity,
 } from "@/lib/precision-parity/types";
 import { computeSpecificParityEntryDigit } from "@/lib/precision-parity/engines/specific-entry-digit";
+import {
+  recordPublishedFinalSignal,
+  checkAndResolvePendingSignals,
+} from "@/lib/precision-parity/journal";
 
 const DIGIT_GROUPS = new Set(["Standard", "1s", "Jump"]);
 export const PARITY_SYMBOLS = DERIV_SYMBOLS.filter((s) => DIGIT_GROUPS.has(s.group));
@@ -224,6 +228,11 @@ export function usePrecisionParity(
 
       emittedList.push(opp);
 
+      // Record finalSignal to durable journal if available
+      if (m.finalSignal && m.finalSignal.action !== "NO_TRADE" && m.finalSignal.confidence >= 65) {
+        recordPublishedFinalSignal(m.finalSignal);
+      }
+
       // Add to journal if new high-conviction opportunity
       if (confidence >= 65 && !journalRef.current.some((j) => j.id === opp.id)) {
         journalRef.current = [opp, ...journalRef.current].slice(0, 30);
@@ -333,6 +342,14 @@ export function usePrecisionParity(
       arr.push(tick);
       if (arr.length > 2000) arr.splice(0, arr.length - 2000);
       ticksRef.current[sym] = arr;
+
+      // Extract last digit and check/resolve pending journal signals
+      const pip = derivBus.getPipSize(sym);
+      const str = tick.price.toFixed(pip);
+      const lastDigit = parseInt(str[str.length - 1], 10);
+      if (!isNaN(lastDigit)) {
+        checkAndResolvePendingSignals(sym, lastDigit);
+      }
     });
     const unsubSym = derivBus.subscribe(PARITY_SYMBOLS.map((s) => s.symbol));
     return () => {

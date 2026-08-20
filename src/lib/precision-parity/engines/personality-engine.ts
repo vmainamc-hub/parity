@@ -110,3 +110,35 @@ export function getSymbolPersonality(symbol: string): SymbolPersonalityProfile {
     minConfidenceFloor: 58,
   };
 }
+
+export interface ParityPersonalityReport {
+  profile: SymbolPersonalityProfile & { regimeAffinity?: string; clusterTendency?: string };
+  tendency: { bias: number; recommendation: "EVEN" | "ODD" | "NEUTRAL" };
+}
+
+export function runParityPersonalityEngine(
+  symbol: string,
+  digits: number[],
+): ParityPersonalityReport {
+  const profile = getSymbolPersonality(symbol);
+  const n = digits.length;
+  if (n < 10) {
+    return {
+      profile: { ...profile, regimeAffinity: "UNKNOWN", clusterTendency: "LOW" },
+      tendency: { bias: 0, recommendation: "NEUTRAL" },
+    };
+  }
+  const evenCount = digits.filter((d) => d % 2 === 0).length;
+  const bias = evenCount / n - 0.5;
+  return {
+    profile: {
+      ...profile,
+      regimeAffinity: Math.abs(bias) > 0.05 ? "TREND_PERSISTENT" : "MEAN_REVERTING",
+      clusterTendency: profile.is1Hz ? "BURST" : "DISTRIBUTED",
+    },
+    tendency: {
+      bias,
+      recommendation: bias > 0.03 ? "EVEN" : bias < -0.03 ? "ODD" : "NEUTRAL",
+    },
+  };
+}

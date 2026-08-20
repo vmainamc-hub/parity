@@ -28,26 +28,29 @@ export function LiveMarketTickerStrip({
     group: "Standard",
   };
 
-  const latestTick = ticks.length > 0 ? ticks[ticks.length - 1] : null;
-  const latestDigit = digits.length > 0 ? digits[digits.length - 1] : null;
+  const safeTicks = ticks ?? [];
+  const safeDigits = digits ?? [];
+
+  const latestTick = safeTicks.length > 0 ? safeTicks[safeTicks.length - 1] : null;
+  const latestDigit = safeDigits.length > 0 ? safeDigits[safeDigits.length - 1] : null;
   const isLatestEven = latestDigit !== null ? latestDigit % 2 === 0 : false;
 
   // Recent 20 digits for the rolling tape
-  const recentDigits = digits.slice(-20);
+  const recentDigits = safeDigits.slice(-20);
 
   // Compute 20-digit and 50-digit even ratio
-  const last20 = digits.slice(-20);
+  const last20 = safeDigits.slice(-20);
   const evenCount20 = last20.filter((d) => d % 2 === 0).length;
   const evenPct20 = last20.length > 0 ? (evenCount20 / last20.length) * 100 : 50;
 
   // Current Streak Calculation
   let currentStreak = 0;
   let streakType: "EVEN" | "ODD" | null = null;
-  if (digits.length > 0) {
-    const lastParity = digits[digits.length - 1] % 2 === 0 ? "EVEN" : "ODD";
+  if (safeDigits.length > 0) {
+    const lastParity = safeDigits[safeDigits.length - 1] % 2 === 0 ? "EVEN" : "ODD";
     streakType = lastParity;
-    for (let i = digits.length - 1; i >= 0; i--) {
-      const p = digits[i] % 2 === 0 ? "EVEN" : "ODD";
+    for (let i = safeDigits.length - 1; i >= 0; i--) {
+      const p = safeDigits[i] % 2 === 0 ? "EVEN" : "ODD";
       if (p === lastParity) currentStreak++;
       else break;
     }

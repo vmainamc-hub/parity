@@ -4,6 +4,7 @@
 import { computeTransitionTensor } from "./transition-tensor";
 import { computeDigitHazards } from "./hazard";
 import { runParticleFilter } from "../precision-parity/particle-filter";
+import { erf } from "./math-utils";
 
 export interface CandidateLedger {
   contract: string; // e.g. "DIGITEVEN", "DIGITODD", "DIGITOVER", "DIGITUNDER", "DIGITMATCH", "DIGITDIFF"
@@ -98,11 +99,11 @@ class FastRNG {
 }
 
 export function runDigitSimulationLoop(
-  digits: number[],
+  digits: number[] = [],
   market: string = "default",
 ): SimulationUniverseReport {
   const startTs = performance.now();
-  const clean = digits
+  const clean = (digits ?? [])
     .map((d) => (typeof d === "number" && Number.isFinite(d) ? Math.abs(Math.floor(d)) % 10 : 0))
     .slice(-500);
 
@@ -207,7 +208,7 @@ export function runDigitSimulationLoop(
 
     const stdNull = Math.sqrt((nullP * (1 - nullP)) / SIM_PATHS);
     const zScore = (simWinRate - nullP) / Math.max(1e-9, stdNull);
-    const pValue = Math.max(1e-6, 1.0 - 0.5 * (1 + Math.erf(zScore / Math.SQRT2)));
+    const pValue = Math.max(1e-6, 1.0 - 0.5 * (1 + erf(zScore / Math.SQRT2)));
 
     const survivalByEntry = entryWins.map((w) => w / SIM_PATHS);
 
@@ -229,23 +230,6 @@ export function runDigitSimulationLoop(
 
     candidateLedgers.set(key, entry);
     ledgers.push(entry);
-  }
-
-  // Math.erf helper
-  if (!Math.erf) {
-    Math.erf = function (x: number) {
-      const a1 = 0.254829592;
-      const a2 = -0.284496736;
-      const a3 = 1.421413741;
-      const a4 = -1.453152027;
-      const a5 = 1.061405429;
-      const p = 0.3275911;
-      const sign = x < 0 ? -1 : 1;
-      const absX = Math.abs(x);
-      const t = 1.0 / (1.0 + p * absX);
-      const y = 1.0 - ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-absX * absX);
-      return sign * y;
-    };
   }
 
   // Sort descending by conservative EV

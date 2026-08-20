@@ -16,18 +16,22 @@ interface Props {
   marketName: string;
 }
 
-export function PrecisionDigitIntelligenceCard({ digits, marketName }: Props) {
+export function PrecisionDigitIntelligenceCard({ digits = [], marketName }: Props) {
+  const safeDigits = digits ?? [];
   const [activeSubTab, setActiveSubTab] = useState<"tensor" | "hazard" | "sim42" | "sweep">(
     "sim42",
   );
 
   // Run analytical engines on current digit stream
-  const tensor = React.useMemo(() => computeTransitionTensor(digits), [digits]);
-  const hazard = React.useMemo(() => computeDigitHazards(digits), [digits]);
-  const sim = React.useMemo(() => runDigitSimulationLoop(digits, marketName), [digits, marketName]);
-  const sweep = React.useMemo(() => sweepThresholds(digits), [digits]);
+  const tensor = React.useMemo(() => computeTransitionTensor(safeDigits), [safeDigits]);
+  const hazard = React.useMemo(() => computeDigitHazards(safeDigits), [safeDigits]);
+  const sim = React.useMemo(
+    () => runDigitSimulationLoop(safeDigits, marketName),
+    [safeDigits, marketName],
+  );
+  const sweep = React.useMemo(() => sweepThresholds(safeDigits), [safeDigits]);
 
-  const lastDigit = digits.length > 0 ? digits[digits.length - 1] : 0;
+  const lastDigit = safeDigits.length > 0 ? safeDigits[safeDigits.length - 1] : 0;
 
   return (
     <div
@@ -116,7 +120,7 @@ export function PrecisionDigitIntelligenceCard({ digits, marketName }: Props) {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {sim.candidates.slice(0, 6).map((c, idx) => (
+            {(sim?.candidates ?? []).slice(0, 6).map((c, idx) => (
               <div
                 key={idx}
                 className={cn(
@@ -197,7 +201,7 @@ export function PrecisionDigitIntelligenceCard({ digits, marketName }: Props) {
 
           <div className="p-3 rounded-xl bg-black/40 border border-white/5 text-xs text-slate-300">
             <span className="text-cyan-400 font-bold">Top Transition Vectors:</span>{" "}
-            {tensor.dominantTransitions.slice(0, 3).map((t, i) => (
+            {(tensor?.dominantTransitions ?? []).slice(0, 3).map((t, i) => (
               <span key={i} className="mr-3 font-mono">
                 {t.from} → {t.to} ({(t.prob * 100).toFixed(1)}%, q={t.qValue.toFixed(3)})
               </span>
@@ -257,7 +261,7 @@ export function PrecisionDigitIntelligenceCard({ digits, marketName }: Props) {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
-            {sweep.rankedContracts.slice(0, 8).map((pt, i) => (
+            {(sweep?.rankedContracts ?? []).slice(0, 8).map((pt, i) => (
               <div
                 key={i}
                 className={cn(

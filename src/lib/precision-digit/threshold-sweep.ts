@@ -82,8 +82,8 @@ function wilsonInterval(k: number, n: number, z: number = 1.645): [number, numbe
   return [Math.max(0, center - margin), Math.min(1, center + margin)];
 }
 
-export function sweepThresholds(digits: number[]): ThresholdSweepReport {
-  const clean = digits
+export function sweepThresholds(digits: number[] = []): ThresholdSweepReport {
+  const clean = (digits ?? [])
     .map((d) => (typeof d === "number" && Number.isFinite(d) ? Math.abs(Math.floor(d)) % 10 : 0))
     .slice(-500);
   const n = clean.length;

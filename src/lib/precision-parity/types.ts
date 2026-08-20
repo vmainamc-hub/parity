@@ -299,6 +299,8 @@ export interface ParitySignal {
   narrative: string;
 }
 
+export type { FinalSignal, EngineVote } from "./final-signal";
+
 export interface MarketParityReport {
   market: string;
   name: string;
@@ -318,6 +320,7 @@ export interface MarketParityReport {
   forecast?: import("./forecast").ForecastReport;
   verdict: ParityVerdict;
   signal?: ParitySignal;
+  finalSignal?: import("./final-signal").FinalSignal;
   decorrelation?: import("./decorrelation").DecorrelationReport;
   significance?: import("./significance").SignificanceReport;
   particles?: import("./particle-filter").ParticleReport;

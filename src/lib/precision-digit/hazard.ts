@@ -21,8 +21,8 @@ export interface DigitHazardReport {
   narrative: string;
 }
 
-export function computeDigitHazards(digits: number[]): DigitHazardReport {
-  const clean = digits
+export function computeDigitHazards(digits: number[] = []): DigitHazardReport {
+  const clean = (digits ?? [])
     .map((d) => (typeof d === "number" && Number.isFinite(d) ? Math.abs(Math.floor(d)) % 10 : 0))
     .slice(-500);
   const n = clean.length;

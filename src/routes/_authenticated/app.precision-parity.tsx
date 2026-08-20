@@ -55,6 +55,7 @@ import { LiveMarketTickerStrip } from "@/components/precision-parity/LiveMarketT
 import { PrecisionDigitIntelligenceCard } from "@/components/precision-parity/PrecisionDigitIntelligenceCard";
 import { MultiMarketSignalRadar } from "@/components/precision-parity/MultiMarketSignalRadar";
 import { EngineConfluenceArchitecture } from "@/components/precision-parity/EngineConfluenceArchitecture";
+import { ParitySignalCard } from "@/components/precision-parity/ParitySignalCard";
 import { buildPrecisionParitySignal } from "@/lib/precision-parity/engines/signal-builder";
 import { CIOStrip } from "@/components/cio/CIOStrip";
 import { DEFAULT_FEATURE_FLAGS } from "@/lib/precision-edge/terminal";
@@ -284,7 +285,22 @@ function PrecisionParity() {
 
           {/* TAB 1: OPPORTUNITY (Real-Time Multi-Market Signal Radar & Deep Analytical Engines) */}
           <TabsContent value="opportunity" className="space-y-6 focus-visible:outline-none">
-            {/* 1. Multi-Market Real-Time Opportunity Radar (All Volatilities Scanned Simultaneously) */}
+            {/* 1. Primary Canonical Institutional Signal Card for Current Active Market */}
+            {currentReport?.finalSignal ? (
+              <ParitySignalCard signal={currentReport.finalSignal} className="shadow-2xl" />
+            ) : currentReport ? (
+              <ParitySentinelOpportunityCard
+                report={currentReport}
+                signal={activeSignal}
+                digits={
+                  activeDigits.length > 0 ? activeDigits : scan.getDigits(currentReport.market)
+                }
+              />
+            ) : (
+              <NoTradeBanner scan={scan} settings={settings} />
+            )}
+
+            {/* 2. Multi-Market Real-Time Opportunity Radar (All Volatilities Scanned Simultaneously) */}
             <MultiMarketSignalRadar
               opportunities={scan.emittedOpportunities}
               topOpportunity={scan.topOpportunity}
@@ -298,27 +314,11 @@ function PrecisionParity() {
               journal={scan.opportunityJournal}
             />
 
-            {/* 2. Comprehensive 18-Engine Confluence Architecture & Role Assignment Breakdown */}
+            {/* 3. Comprehensive 18-Engine Confluence Architecture & Role Assignment Breakdown */}
             <EngineConfluenceArchitecture
               topOpportunity={scan.topOpportunity}
               report={currentReport}
             />
-
-            {/* 2. Deep Market-Specific Sentinel Breakdown Card */}
-            {currentReport ? (
-              <>
-                <ParitySentinelOpportunityCard
-                  report={currentReport}
-                  signal={activeSignal}
-                  digits={
-                    activeDigits.length > 0 ? activeDigits : scan.getDigits(currentReport.market)
-                  }
-                />
-                <PrecisionAnalyticSuiteCard report={currentReport} />
-              </>
-            ) : (
-              <NoTradeBanner scan={scan} settings={settings} />
-            )}
 
             {/* Hidden Statistical Depth Accordions (Sentinel Paradigm) */}
             {diagnostic && (
@@ -547,7 +547,7 @@ function RecommendationCard({
           Reasoning
         </div>
         <ul className="space-y-1 text-sm text-foreground/90">
-          {held.reasoning.slice(0, 8).map((r, i) => (
+          {(held.reasoning ?? []).slice(0, 8).map((r, i) => (
             <li key={i}>{r}</li>
           ))}
         </ul>
